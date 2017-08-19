@@ -15,6 +15,7 @@ const char* CMD_WRITE = "write";
 const char* CMD_WRITE_DEST = "-d=";
 const char* CMD_WRITE_SRC = "-f=";
 const char* CMD_WRITE_OVERWRITE = "-o";
+const char* CMD_WRITE_BOOT = "-b";
 
 const char* CMD_DELETE = "delete";
 const char* CMD_DELETE_DEST = "-d=";
@@ -202,6 +203,7 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 		Label = (char*)vol->mbr.VolumeLable;
 	} else if (StartsWith(cmd, CMD_WRITE)) {
 		bool overwrite = Exists(cmd, CMD_WRITE_OVERWRITE);
+		bool boot = Exists(cmd, CMD_WRITE_BOOT);
 
 		const char* dest = OptionGetString(cmd, CMD_WRITE_DEST, &len, true);
 		const char* src = OptionGetString(cmd, CMD_WRITE_SRC, &len, true);
@@ -212,7 +214,8 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 
 		if (!data) return;
 		
-		vol->WriteFile(dest, size, data, overwrite ? SFS_ATTR_OVERWRITE : 0);
+		if (boot) vol->WriteBootCode((byte*)data, size);
+		else vol->WriteFile(dest, size, data, overwrite ? SFS_ATTR_OVERWRITE : 0);
 
 		printf("Writing: %s -> %s\n", src, dest);
 
