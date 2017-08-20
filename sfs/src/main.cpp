@@ -7,18 +7,18 @@ char* DrivePath;
 char* Label;
 
 const char* CMD_FORMAT = "format";
-const char* CMD_FORMAT_VOLUMELABEL = "-l=";
-const char* CMD_FORMAT_CLUSTERSIZE = "-s=";
-const char* CMD_FORMAT_RESERVEDSECTORS = "-r=";
+const char* CMD_FORMAT_VOLUMELABEL = "l=";
+const char* CMD_FORMAT_CLUSTERSIZE = "s=";
+const char* CMD_FORMAT_RESERVEDSECTORS = "r=";
 
 const char* CMD_WRITE = "write";
-const char* CMD_WRITE_DEST = "-d=";
-const char* CMD_WRITE_SRC = "-f=";
+const char* CMD_WRITE_DEST = "d=";
+const char* CMD_WRITE_SRC = "f=";
 const char* CMD_WRITE_OVERWRITE = "-o";
 const char* CMD_WRITE_BOOT = "-b";
 
 const char* CMD_DELETE = "delete";
-const char* CMD_DELETE_DEST = "-d=";
+const char* CMD_DELETE_DEST = "d=";
 
 #define DEFAULT_CLUSTERSIZE 4
 #define DEFAULT_RESERVEDSECTORS 1
@@ -212,10 +212,28 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 
 		void* data = ReadFile(src, &size);
 
-		if (!data) return;
+		if (!data) {
+			printf("Failed to read source file!\n");
+			return;
+		}
 		
-		if (boot) vol->WriteBootCode((byte*)data, size);
-		else vol->WriteFile(dest, size, data, overwrite ? SFS_ATTR_OVERWRITE : 0);
+		dword res = SFS_ERROR_NONE;
+
+		if (boot) res = vol->WriteBootCode((byte*)data, size);
+		else res = vol->WriteFile(dest, size, data, overwrite ? SFS_ATTR_OVERWRITE : 0);
+
+		if (res != SFS_ERROR_NONE) {
+			if (res == SFS_ERROR_EXIST) {
+				printf("File already exist! Use -o to overwrite\n");
+			}
+			else {
+				if (boot) printf("Failed to write boot code: too large buffer!\n");
+				else printf("Failed to write file!\n");
+			}
+
+			delete[] dest, src;
+			return;
+		}
 
 		printf("Writing: %s -> %s\n", src, dest);
 
@@ -223,7 +241,11 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 	} else if (StartsWith(cmd, CMD_DELETE)) {
 		const char* dest = OptionGetString(cmd, CMD_DELETE_DEST, &len, true);
 
-		vol->DeleteFile(dest);
+		dword res = vol->DeleteFile(dest);
+
+		if (res == SFS_ERROR_INVALID_PATH) {
+			printf("File doesn't exist!\n");
+		}
 
 		delete[] dest;
 	} else if (StartsWith(cmd, "exit")) {

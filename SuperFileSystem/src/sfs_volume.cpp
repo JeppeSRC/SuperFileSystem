@@ -214,7 +214,9 @@ qword SFS_VOLUME::GetFolderRecursive(const char* path, qword parentLBA, bool cre
 	num = (dword)CountSlash(path);
 
 	if (num == 0) {
-		return GetFolder(path, parentLBA, create);
+		if (strlen(path)) return GetFolder(path, parentLBA, create);
+
+		return parentLBA;
 	}
 
 	SplitPath(path, &names, &num);
@@ -346,7 +348,7 @@ SFS_FILE_ENTRY* SFS_VOLUME::FindFile(qword folderCluster, const char* name, qwor
 		}
 	}
 
-	if (!lba && !create) return nullptr;
+	if (!create || !lba) return nullptr;
 
 	cluster = folderCluster;
 
@@ -383,15 +385,17 @@ SFS_FILE_ENTRY* SFS_VOLUME::FindFile(qword folderCluster, const char* name, qwor
 	return nullptr;
 }
 
-void SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
+dword SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
 
-	if (size > mbr.SectorSize * mbr.ReservedSectors) return;
+	if (size > mbr.SectorSize * mbr.ReservedSectors) return SFS_ERROR;
 
 	DiskWrite(handle, 0, size, data);
 	DiskWrite(handle, 3, sizeof(SFS_MBR) - 3, &mbr.ID);
+
+	return SFS_ERROR_NONE;
 }
 
-void SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* data, dword attr) const {
+dword SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* data, dword attr) const {
 	bool overwrite = (attr & SFS_ATTR_OVERWRITE) == SFS_ATTR_OVERWRITE;
 
 	char* filename;
@@ -403,7 +407,7 @@ void SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* da
 
 	if (folder == SFS_CLUSTER_INVALID) {
 		delete[] filename, path;
-		return;
+		return SFS_ERROR;
 	}
 
 	qword entryCluster = 0;
@@ -412,10 +416,10 @@ void SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* da
 
 	delete[] filename, path;
 
-	if (file == nullptr) return;
+	if (file == nullptr) return SFS_ERROR;
 
 	if (file->Size) {
-		if (!overwrite) return;
+		if (!overwrite) return SFS_ERROR_EXIST;
 	} else {
 		overwrite = false;
 	}
@@ -469,9 +473,11 @@ void SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* da
 
 		WriteCluster(cluster, 1, tmpClusterD);
 	}
+
+	return SFS_ERROR_NONE;
 }
 
-void SFS_VOLUME::ReadFile(const char* absolute_path, qword* size, void** data) const {
+dword SFS_VOLUME::ReadFile(const char* absolute_path, qword* size, void** data) const {
 	char* filename;
 	char* path;
 
@@ -482,19 +488,20 @@ void SFS_VOLUME::ReadFile(const char* absolute_path, qword* size, void** data) c
 	if (folder == SFS_CLUSTER_INVALID) {
 		*size = 0;
 		delete[] filename, path;
-
-		return;
+		return SFS_ERROR_INVALID_PATH;
 	}
 
 	qword numEntries = GetEntriesInCluster<SFS_FILE_ENTRY>();
 	
 	SFS_FILE_ENTRY* e = FindFile(folder, filename, nullptr);
 
-	if (!e) return;
+	delete[] filename, path;
+
+	if (!e) return SFS_ERROR_INVALID_PATH;
 	
 	*size = e->Size;
 
-	if (data == nullptr) return;
+	if (data == nullptr) return SFS_ERROR;
 
 	*data = new byte[e->Size];
 
@@ -513,10 +520,10 @@ void SFS_VOLUME::ReadFile(const char* absolute_path, qword* size, void** data) c
 
 	memcpy((byte*)*data + GetClusterSizeInBytes() * numClusters, tmpClusterD, *size - GetClusterSizeInBytes() * numClusters);
 
-
+	return SFS_ERROR_NONE;
 }
 
-void SFS_VOLUME::DeleteFile(const char* absolute_path, qword parentFolder) {
+dword SFS_VOLUME::DeleteFile(const char* absolute_path, qword parentFolder) {
 	char* filename;
 	char* path;
 
@@ -526,12 +533,16 @@ void SFS_VOLUME::DeleteFile(const char* absolute_path, qword parentFolder) {
 
 	if (folder == SFS_CLUSTER_INVALID) {
 		delete[] filename, path;
-		return;
+		return SFS_ERROR_INVALID_PATH;
 	}
 
 	qword lba = 0;
 
 	SFS_FILE_ENTRY* e = FindFile(folder, filename, &lba);
+
+	delete[] filename, path;
+
+	if (!e) return SFS_ERROR_INVALID_PATH;
 
 	SFS_FILE_ENTRY file = *e;
 
@@ -554,10 +565,12 @@ void SFS_VOLUME::DeleteFile(const char* absolute_path, qword parentFolder) {
 
 		FreeCluster(cluster);
 	}
+
+	return SFS_ERROR_NONE;
 }
 
-void SFS_VOLUME::DeleteFolder(const char* path, qword parentFolder) {
-
+dword SFS_VOLUME::DeleteFolder(const char* path, qword parentFolder) {
+	return SFS_ERROR;
 }
 
 void SFS_VOLUME::ReadSector(qword offset, qword size, void* data) const {

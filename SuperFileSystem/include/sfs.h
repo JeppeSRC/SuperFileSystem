@@ -156,12 +156,12 @@ public:
 	qword CreateFolder(const char* path, qword parentLBA = SFS_CLUSTER_DATA) const;
 	SFS_FILE_ENTRY* FindFile(qword folderCluster, const char* name, qword* lba, bool create = false) const;
 
-	void WriteBootCode(byte* data, dword size) const;
+	dword WriteBootCode(byte* data, dword size) const;
 
-	void WriteFile(const char* path, qword size, const void* data, dword attributes) const;
-	void ReadFile(const char* path, qword* size, void** data) const;
-	void DeleteFile(const char* path, qword parentFolder = SFS_CLUSTER_DATA);
-	void DeleteFolder(const char* path, qword parentFolder = SFS_CLUSTER_DATA);
+	dword WriteFile(const char* path, qword size, const void* data, dword attributes) const;
+	dword ReadFile(const char* path, qword* size, void** data) const;
+	dword DeleteFile(const char* path, qword parentFolder = SFS_CLUSTER_DATA);
+	dword DeleteFolder(const char* path, qword parentFolder = SFS_CLUSTER_DATA);
 
 	void ReadSector(qword offset, qword size, void* data) const;
 	void ReadCluster(qword offset, qword size, void* data) const;
