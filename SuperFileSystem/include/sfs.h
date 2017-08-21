@@ -130,6 +130,8 @@ private:
 	byte* tmpClusterD = nullptr;
 	byte* tmpClusterN = nullptr;
 	byte* tmpClusterA = nullptr;
+
+	void InitTmpClusters();
 public:
 	~SFS_VOLUME() { delete[] tmpClusterD; delete[] tmpClusterS; delete[] tmpClusterN; }
 
@@ -137,7 +139,6 @@ public:
 
 	SFS_MBR mbr;
 
-	void InitTmpClusters();
 	bool IsFormatted() const;
 
 	void Format(const char* volume_label, byte cluser_size, byte reserved_sectors);

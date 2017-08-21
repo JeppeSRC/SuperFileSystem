@@ -396,6 +396,7 @@ dword SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
 }
 
 dword SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* data, dword attr) const {
+	if (!data) return SFS_ERROR;
 	bool overwrite = (attr & SFS_ATTR_OVERWRITE) == SFS_ATTR_OVERWRITE;
 
 	char* filename;
@@ -480,13 +481,12 @@ dword SFS_VOLUME::WriteFile(const char* absolute_path, qword size, const void* d
 dword SFS_VOLUME::ReadFile(const char* absolute_path, qword* size, void** data) const {
 	char* filename;
 	char* path;
-
+	*size = 0;
 	GetFileNameAndPath(absolute_path, &path, &filename);
 
 	qword folder = GetFolderRecursive(path);
 
 	if (folder == SFS_CLUSTER_INVALID) {
-		*size = 0;
 		delete[] filename, path;
 		return SFS_ERROR_INVALID_PATH;
 	}
