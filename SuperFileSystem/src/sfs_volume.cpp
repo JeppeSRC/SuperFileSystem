@@ -2,6 +2,20 @@
 #include <util.h>
 #include <stdio.h>
 
+bool SFS_VOLUME::Lock() const {
+	if (!DeviceIoControl(handle, FSCTL_DISMOUNT_VOLUME, 0, 0, 0, 0, 0, 0)) {
+		printf("Filed to dismount volume! Error: %u\n", GetLastError());
+		return false;
+	}
+
+	if (!DeviceIoControl(handle, FSCTL_LOCK_VOLUME, 0, 0, 0, 0, 0, 0)) {
+		printf("Failed to lock volume! Error: %u\n", GetLastError());
+		return false;
+	}
+
+	return true;
+}
+
 void SFS_VOLUME::InitTmpClusters() {
 
 	tmpClusterD = new byte[mbr.ClusterSize * mbr.SectorSize];
@@ -55,7 +69,11 @@ void SFS_VOLUME::Format(const char* volume_label, byte cluster_size, byte reserv
 
 	mbr.Reserved1 = 0xFFFF;
 
-	DiskWrite(handle, 0, sizeof(SFS_MBR), &mbr);
+	byte tmpp[4096] = { 0 };
+
+	memcpy(tmpp, &mbr, sizeof(SFS_MBR));
+
+	DiskWrite(handle, 0, mbr.SectorSize, tmpp);
 
 	qword tmpSize = (mbr.ClusterSize * mbr.SectorSize) << 1;
 
@@ -389,8 +407,24 @@ dword SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
 
 	if (size > mbr.SectorSize * mbr.ReservedSectors) return SFS_ERROR;
 
-	DiskWrite(handle, 0, size, data);
-	DiskWrite(handle, 3, sizeof(SFS_MBR) - 3, &mbr.ID);
+	byte tmpp[4096] = { 0 };
+
+	dword sectors = size / mbr.SectorSize + 1;
+	dword written = 0;
+
+	for (dword i = 0; i < sectors; i++) {
+
+		dword toWrite = size - written;
+		toWrite = toWrite > mbr.SectorSize ? mbr.SectorSize : toWrite;
+
+		memcpy(tmpp, data + written, toWrite);
+
+		DiskWrite(handle, 0, sizeof(tmpp), tmpp);
+
+		written += toWrite;
+	}
+
+	
 
 	return SFS_ERROR_NONE;
 }

@@ -15,7 +15,11 @@ SFS_VOLUME* LoadDisk(const char* path) {
 		return nullptr;
 	}
 
-	DiskRead(vol->handle, 0, sizeof(SFS_MBR), &vol->mbr);
+	byte tmpp[4096] = { 0 };
+
+	DiskRead(vol->handle, 0, sizeof(tmpp), tmpp);
+
+	memcpy(&vol->mbr, tmpp, sizeof(SFS_MBR));
 
 	if (vol->IsFormatted()) {
 		vol->InitTmpClusters();

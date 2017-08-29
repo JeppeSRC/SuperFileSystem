@@ -20,6 +20,9 @@ const char* CMD_WRITE_BOOT = "-b";
 const char* CMD_DELETE = "delete";
 const char* CMD_DELETE_DEST = "d=";
 
+const char* CMD_LOCK = "lock";
+const char* CMD_RELOAD = "reload";
+
 #define DEFAULT_CLUSTERSIZE 4
 #define DEFAULT_RESERVEDSECTORS 1
 
@@ -184,7 +187,21 @@ const char* OptionGetString(const char* cmd, const char* option, size_t* length,
 	return nullptr;
 }
 
-void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
+void Load(SFS_VOLUME** volume) {
+	SFS_VOLUME* vol = LoadDisk(DrivePath);
+
+	if (vol->IsFormatted()) {
+		Label = (char*)vol->mbr.VolumeLable;
+	}
+	else {
+		Label = DrivePath;
+	}
+
+	*volume = vol;
+}
+
+void ParseCMD(const char* cmd, SFS_VOLUME** volume) {
+	SFS_VOLUME* vol = *volume;
 	size_t len = 0;
 	if (StartsWith(cmd, CMD_FORMAT)) {
 		size_t clusterSize = OptionGetInt(cmd, CMD_FORMAT_CLUSTERSIZE);
@@ -201,7 +218,8 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 		printf("Formatting: <Label: %s> <ClusterSize: %u> <ReservedSectors: %u>\n", volLabel, clusterSize, reservedSectors);
 		vol->Format(volLabel, clusterSize, reservedSectors);
 		Label = (char*)vol->mbr.VolumeLable;
-	} else if (StartsWith(cmd, CMD_WRITE)) {
+	}
+	else if (StartsWith(cmd, CMD_WRITE)) {
 		bool overwrite = Exists(cmd, CMD_WRITE_OVERWRITE);
 		bool boot = Exists(cmd, CMD_WRITE_BOOT);
 
@@ -216,7 +234,7 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 			printf("Failed to read source file!\n");
 			return;
 		}
-		
+
 		dword res = SFS_ERROR_NONE;
 
 		if (boot) res = vol->WriteBootCode((byte*)data, size);
@@ -238,7 +256,8 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 		printf("Writing: %s -> %s\n", src, dest);
 
 		delete[] dest, src;
-	} else if (StartsWith(cmd, CMD_DELETE)) {
+	}
+	else if (StartsWith(cmd, CMD_DELETE)) {
 		const char* dest = OptionGetString(cmd, CMD_DELETE_DEST, &len, true);
 
 		dword res = vol->DeleteFile(dest);
@@ -248,9 +267,23 @@ void ParseCMD(const char* cmd, SFS_VOLUME* vol) {
 		}
 
 		delete[] dest;
-	} else if (StartsWith(cmd, "exit")) {
+	}
+	else if (StartsWith(cmd, "exit")) {
 		CloseDisk(vol);
 		exit(0);
+	}
+	else if (StartsWith(cmd, CMD_LOCK)) {
+		printf("WARNING: This will dismout the volume! Are you sure <y/n>");
+		char res[16];
+		fgets(res, sizeof(res), stdin);
+		if (Exists(res, "y")) {
+			if (vol->Lock()) {
+				printf("Volume locked\n");
+			}
+		}
+	} else if (StartsWith(cmd, CMD_RELOAD)) {
+		CloseDisk(vol);
+		Load(volume);
 	} else {
 
 		printf("Unknown command: %s\n", cmd);
@@ -271,13 +304,10 @@ int main(int argc, char** argv) {
 
 	DrivePath = argv[1];
 	
-	SFS_VOLUME* vol = LoadDisk(DrivePath);
+	SFS_VOLUME* vol = nullptr;
+
+	Load(&vol);
 	
-	if (vol->IsFormatted()) {
-		Label = (char*)vol->mbr.VolumeLable;
-	} else {
-		Label = DrivePath;
-	}
 
 	char cmd[512];
 
@@ -286,7 +316,7 @@ int main(int argc, char** argv) {
 		printf("%s: ", Label);
 		fgets(cmd, sizeof(cmd), stdin);
 
-		ParseCMD(cmd, vol);
+		ParseCMD(cmd, &vol);
 
 	}
 

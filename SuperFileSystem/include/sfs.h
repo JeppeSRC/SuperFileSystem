@@ -138,6 +138,8 @@ public:
 
 	SFS_MBR mbr;
 
+	bool Lock() const;
+
 	void InitTmpClusters();
 	bool IsFormatted() const;
 

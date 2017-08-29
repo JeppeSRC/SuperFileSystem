@@ -19,7 +19,9 @@ void CloseDisk(HANDLE disk) {
 
 void DiskRead(HANDLE disk, qword offset, qword size, void* data) {
 	SetOffset(disk, offset);
-	ReadFile(disk, data, size, 0, 0);
+	if (ReadFile(disk, data, size, 0, 0) == 0) {
+		printf("Reading error: %u\n", GetLastError());
+	}
 }
 
 /*
@@ -33,7 +35,10 @@ void DiskReadCluster(SFS_VOLUME* volume, qword offset, qword size, void* data) {
 
 void DiskWrite(HANDLE disk, qword offset, qword size, const void* data) {
 	SetOffset(disk, offset);
-	WriteFile(disk, data, size, 0, 0);
+	if (WriteFile(disk, data, size, 0, 0) == 0) {
+		printf("Writing error: %u\n", GetLastError());
+	}
+
 }
 
 /*
