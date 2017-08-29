@@ -419,6 +419,10 @@ dword SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
 
 		memcpy(tmpp, data + written, toWrite);
 
+		if (i == 0) {
+			memcpy(tmpp + 3, (byte*)&mbr + 3, sizeof(SFS_MBR));
+		}
+
 		DiskWrite(handle, 0, mbr.SectorSize, tmpp);
 
 		written += toWrite;
