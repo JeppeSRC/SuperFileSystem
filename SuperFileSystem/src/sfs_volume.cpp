@@ -86,7 +86,7 @@ void SFS_VOLUME::Format(const char* volume_label, byte cluster_size, byte reserv
 
 	tmp[0] |= 3;
 
-	WriteSector(SFS_LBA_TRACKING_SECTORS(mbr), 1, tmp);
+	WriteSector(mbr.ReservedSectors, 1, tmp);
 
 	memset(tmp, 0, tmpSize);
 
@@ -409,7 +409,7 @@ dword SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
 
 	byte tmpp[4096] = { 0 };
 
-	dword sectors = size / mbr.SectorSize + 1;
+	dword sectors = (size / mbr.SectorSize) + 1;
 	dword written = 0;
 
 	for (dword i = 0; i < sectors; i++) {
@@ -423,7 +423,9 @@ dword SFS_VOLUME::WriteBootCode(byte* data, dword size) const {
 			memcpy(tmpp + 3, (byte*)&mbr + 3, sizeof(SFS_MBR));
 		}
 
-		DiskWrite(handle, 0, mbr.SectorSize, tmpp);
+		WriteSector(i, 1, tmpp);
+
+		memset(tmpp, 0, toWrite);
 
 		written += toWrite;
 	}
